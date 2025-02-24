@@ -1,18 +1,17 @@
-from fastapi import FastAPI, Depends, HTTPException , Request , Response
+from fastapi import FastAPI, Depends, HTTPException , Request , Response , status
 from sqlalchemy.orm import Session
 import models, schemas, security ,database
-
 from models import User
 from database import engine, get_db
 from repositoryuser import SendEmailVerify
 import jwt 
 from fastapi import BackgroundTasks
-models.Base.metadata.create_all(bind=engine)
-from security import SECRET_KEY , ALGORITHM , verify_password ,create_access_token
+from security import SECRET_KEY , ALGORITHM , create_access_token , get_current_user
 from fastapi import APIRouter
-from security import get_current_user
+from fastapi.security import OAuth2PasswordRequestForm , OAuth2PasswordBearer
 
 app = FastAPI()
+models.Base.metadata.create_all(bind=engine)
 
 @app.post("/signup", response_model=schemas.UserResponse)
 def signup(user: schemas.UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
@@ -71,9 +70,8 @@ def verify_user(token: str, db: Session = Depends(get_db)):
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=400, detail="Token expired")
     
-    except jwt.JWTError:
+    except :
         raise HTTPException(status_code=400, detail="Invalid token")
-
 
 @app.post("/login")
 async def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
@@ -97,35 +95,7 @@ async def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 def get_profile(current_user: User = Depends(get_current_user)):
     return {"message": f"Hello, {current_user.username}!"}
 
-# Optionally, implement a refresh endpoint if needed
-@app.post("/refresh")
-def refresh_token(request: Request, response: Response):
-    # Get the expired token from cookies
-    expired_token = request.cookies.get("access_token")
-    
-    if not expired_token:
-        raise HTTPException(status_code=401, detail="Token missing")
+@app.get("/current_user")
+def read_current_user(current_user: User = Depends(get_current_user)):
+    return {"username": current_user.username, "email": current_user.email}
 
-    try:
-        payload = jwt.decode(expired_token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        
-        if email is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-
-        # Check if the user exists
-        db_user = models.User.query.filter(models.User.email == email).first()
-        if db_user is None:
-            raise HTTPException(status_code=401, detail="User not found")
-        
-        # Create new access token
-        new_access_token = security.create_access_token(data={"sub": db_user.email})
-
-        
-        # Set the new token in cookies
-        response.set_cookie(key="access_token", value=new_access_token, httponly=True, secure=True, samesite="Strict")
-        return {"message": "Token refreshed"}
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-   
