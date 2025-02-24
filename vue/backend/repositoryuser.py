@@ -9,7 +9,7 @@ class SendEmailVerify:
         
         # create email
         email_address = "ditiran10@gmail.com" # type Email
-        email_password = "wicf zxtl auhi vitj" # If you do not have a gmail apps password, create a new app with using generate password. Check your apps and passwords https://myaccount.google.com/apppasswords
+        email_password = "" # If you do not have a gmail apps password, create a new app with using generate password. Check your apps and passwords https://myaccount.google.com/apppasswords
         
         verification_url = f"http://localhost:8000/user/verify/{token}"
         subject = "Activate your account"
